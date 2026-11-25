@@ -168,6 +168,9 @@ textarea{min-height:140px;resize:vertical;line-height:1.6}
       <details><summary>⭐ 즐겨찾기 · 🙅 뺀 가게 (내 브라우저에만 저장)</summary>
         <p class="qs" style="margin:10px 0 4px">⭐ 즐겨찾기</p><div class="list" id="favList"></div>
         <p class="qs" style="margin:14px 0 4px">🙅 나한텐 안 나오게 한 가게</p><div class="list" id="exList"></div>
+        <p class="qs" style="margin:16px 0 4px">📦 다른 브라우저로 옮기기</p>
+        <p class="qs" style="margin:0 0 6px">즐겨찾기 · 뺀 가게 · 저장한 출발 위치를 링크 하나에 담아요. 다른 브라우저(집 컴퓨터, 휴대폰)에서 그 링크를 열면 그대로 들어가요.</p>
+        <button class="btn sm ghost" id="moveCopy">🔗 옮기기 링크 복사</button>
       </details>
     </section>
   </div>
@@ -410,6 +413,27 @@ function drawLists(){
   $("favList").innerHTML=f.length?f.map(([id,v])=>`<div class="li"><span>⭐ ${esc(v.n)} <small style="color:var(--dim)">${esc(v.c||"")}</small></span><button data-id="${esc(id)}" data-t="fav">빼기</button></div>`).join(""):'<p class="qs">아직 없어요. 마음에 드는 가게에서 ☆를 눌러 주세요.</p>';
   $("exList").innerHTML=e.length?e.map(([id,v])=>`<div class="li"><span>🙅 ${esc(v.n)}</span><button data-id="${esc(id)}" data-t="ex">다시 넣기</button></div>`).join(""):'<p class="qs">아직 없어요.</p>';
   document.querySelectorAll(".list button").forEach(b=>b.onclick=()=>{const o=b.dataset.t==="fav"?S.fav:S.ex;delete o[b.dataset.id];save(b.dataset.t,o);drawLists();});
+}
+
+/* ---------- 다른 브라우저로 옮기기 ---------- */
+const b64e=o=>btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const b64d=t=>JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(t.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0))));
+$("moveCopy").onclick=async()=>{
+  const data={v:1,f:S.fav,e:S.ex,p:PLACES};
+  if(!Object.keys(S.fav).length&&!Object.keys(S.ex).length&&!PLACES.length){toast("옮길 게 아직 없어요");return;}
+  const url=location.href.split("#")[0].split("?")[0]+"#move="+b64e(data);
+  try{await navigator.clipboard.writeText(url);toast("🔗 링크를 복사했어요! 다른 브라우저 주소창에 붙여 넣어 주세요");}
+  catch(e){prompt("이 링크를 복사해서 다른 브라우저에서 열어 주세요",url);}
+};
+function takeMove(){
+  const m=location.hash.match(/^#move=([\w-]+)/);if(!m)return;
+  history.replaceState(null,"",location.href.split("#")[0]);
+  let d;try{d=b64d(m[1]);}catch(e){toast("옮기기 링크가 잘렸거나 이상해요 😢");return;}
+  const nf=Object.keys(d.f||{}).filter(k=>!S.fav[k]).length,ne=Object.keys(d.e||{}).filter(k=>!S.ex[k]).length;
+  Object.assign(S.fav,d.f||{});Object.assign(S.ex,d.e||{});save("fav",S.fav);save("ex",S.ex);
+  let np=0;(d.p||[]).forEach(p=>{if(!p||!p.n||!isFinite(p.lat))return;const j=PLACES.findIndex(x=>x.n===p.n);if(j>=0)PLACES[j]=p;else if(PLACES.length<8){PLACES.push(p);np++;}});
+  save("places",PLACES);drawLists();drawPlaces();
+  toast(`📦 가져왔어요! 즐겨찾기 ${nf} · 뺀 가게 ${ne} · 출발 위치 ${np}곳`);
 }
 
 /* ---------- 카카오 지도 ---------- */
@@ -710,6 +734,7 @@ function drawReports(){
 (async function(){
   draw();drawLists();
   const [m]=await Promise.all([BASEURL?api("GET","/meta").catch(()=>null):Promise.resolve(null),bootKakao()]);
+  takeMove();
   if(m){META=m;startPlace();}
   else $("here").textContent=BASEURL?"밥친구 서버에 연결하지 못했어요 😢 잠시 뒤에 다시 와 주세요":"밥친구 서버 주소(API)가 아직 설정되지 않았어요";
   if(location.hash==="#admin")openAdmin();
