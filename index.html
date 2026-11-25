@@ -285,7 +285,7 @@ $("who").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{S.who=S.who===b.dat
 /* ---------- 출발 위치 (내 위치 · 주소 검색 · 저장한 곳) ---------- */
 let PLACES=load("places",[]),FOUND=null;
 const pEmo=n=>/회사|사무실|오피스/.test(n)?"🏢":/집|home/i.test(n)?"🏠":/학교/.test(n)?"🏫":"📍";
-const hereCount=()=>META.count?` · 밥친구 가게 ${META.count}곳 중에서 뽑아요`:"";
+const hereCount=()=>"";
 function drawPlaces(){
   $("baseChips").innerHTML=`<button class="chip ${S.base==="gps"?"on":""}" data-v="gps">📱 지금 내 위치</button>`+
     PLACES.map((p,i)=>`<button class="chip ${S.base==="p"+i?"on":""}" data-v="p${i}">${pEmo(p.n)} ${esc(p.n)}<span class="x" data-del="${i}" title="지우기">✕</span></button>`).join("");
@@ -399,7 +399,7 @@ function show(p,alts,count){
 
   $("rAlt").innerHTML=alts.map(a=>`<button data-id="${esc(a.id)}">${emo(a)} ${esc(a.name)}<small>${esc(catShort(a.cat))} · 약 ${walkMin(a.distance)}분</small></button>`).join("");
   $("rAlt").querySelectorAll("button").forEach(b=>b.onclick=()=>{const a=alts.find(x=>x.id===b.dataset.id);show(a,alts.filter(x=>x!==a).concat([p]),count);});
-  $("cnt").textContent=`조건에 맞는 가게 ${count}곳 중에서 뽑았어요`;
+  $("cnt").textContent="";
   drawMap([p,...alts],p);
 }
 $("go").onclick=roll;$("again").onclick=roll;
