@@ -54,6 +54,7 @@ h1{font-size:30px;color:#fff;margin-top:6px}
 .btn.red{background:#fff;color:var(--red);border:1.5px solid #f3b3ae;box-shadow:none}
 .btn:disabled{opacity:.45;cursor:default}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.chip .x{margin-left:6px;opacity:.55;font-size:13px}.chip .x:hover{opacity:1}
 .here{font-size:14px;color:var(--ink);margin-top:4px;line-height:1.6}
 .toggle{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--dim);margin-top:12px;cursor:pointer}
 .toggle input{width:18px;height:18px;accent-color:var(--main)}
@@ -116,11 +117,9 @@ textarea{min-height:140px;resize:vertical;line-height:1.6}
   <div id="app">
     <section class="panel">
       <p class="q">📍 어디서 출발해요?</p>
-      <div class="chips" id="baseChips">
-        <button class="chip" data-v="base">🏢 회사</button>
-        <button class="chip" data-v="gps">📱 지금 내 위치</button>
-      </div>
-      <div class="irow"><input type="text" id="addrIn" placeholder="주소나 장소 이름으로 찾기 (예: 가산디지털단지역)"><button class="btn sm ghost" id="addrBtn">찾기</button></div>
+      <div class="chips" id="baseChips"></div>
+      <div class="irow"><input type="text" id="addrIn" placeholder="🔎 주소나 장소 이름으로 찾기 (예: 가산디지털단지역)"><button class="btn sm ghost" id="addrBtn">찾기</button></div>
+      <div class="irow hidden" id="saveRow"><input type="text" id="placeName" maxlength="10" placeholder="이 위치 이름 (예: 회사, 집)"><button class="btn sm" id="placeSave">💾 저장</button></div>
       <div class="here" id="here" style="margin-top:8px">가게 명단을 불러오는 중…</div>
     </section>
 
@@ -178,10 +177,10 @@ textarea{min-height:140px;resize:vertical;line-height:1.6}
     <div style="display:flex;justify-content:space-between;align-items:center"><h2>🔐 밥친구 관리실</h2><button class="btn xs ghost" id="logout">로그아웃</button></div>
     <p class="qs" style="margin:4px 0 0" id="adminWho"></p>
 
-    <h3>🏢 회사(출발) 위치</h3>
+    <div class="hidden"><h3>🏢 회사(출발) 위치</h3>
     <div class="here" id="baseNow"></div>
     <div class="irow"><input type="text" id="baseIn" placeholder="회사 주소나 건물 이름"><button class="btn sm ghost" id="baseFind">찾기</button></div>
-    <div class="err" id="baseErr"></div>
+    <div class="err" id="baseErr"></div></div>
 
     <h3>📋 가게 대량 등록</h3>
     <p class="qs">한 줄에 가게 하나씩! 메모는 <b>|</b> 뒤에 적어요.<br>예) <code>진미 샤브샤브 | 점심엔 줄 김</code></p>
@@ -215,7 +214,7 @@ textarea{min-height:140px;resize:vertical;line-height:1.6}
     <div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn sm ghost" id="checkBtn">🔄 폐업 확인하기</button><span class="qs" id="checkMsg" style="margin:8px 0 0"></span></div>
     <div class="tbl" id="stTbl" style="margin-top:8px"></div>
 
-    <h3>🚫 문 닫았어요 제보함</h3>
+    <h3>🚫 문 닫은 것 같은 가게 <span class="qs">· 뽑을 때 카카오맵에서 안 보이면 자동으로 빠져요</span></h3>
     <div class="tbl" id="repTbl"></div>
   </section>
 
@@ -248,7 +247,7 @@ const KINDS=["한식", "중식", "일식", "양식", "분식", "아시안", "고
 function load(k,d){try{const v=localStorage.getItem("imur_"+k);return v?JSON.parse(v):d;}catch(e){return d;}}
 function save(k,v){try{localStorage.setItem("imur_"+k,JSON.stringify(v));}catch(e){}}
 const hr=new Date().getHours();
-let S={base:"base",where:null,whereLabel:"",when:hr<15?"L":"D",mins:hr<15?10:15,type:"FD6",who:null,kind:new Set(),fav:load("fav",{}),ex:load("ex",{}),recent:[],last:null};
+let S={base:null,where:null,whereLabel:"",when:hr<15?"L":"D",mins:hr<15?10:15,type:"FD6",who:null,kind:new Set(),fav:load("fav",{}),ex:load("ex",{}),recent:[],last:null};
 let META={base:null,count:0},STORES={},SETTINGS={},REPORTS={};
 
 /* ---------- 서버 ---------- */
@@ -270,7 +269,7 @@ function radius(){return Math.round(S.mins*WALK/DETOUR);}
 /* ---------- 화면 ---------- */
 function segPick(box,key,cb){$(box).querySelectorAll(".chip").forEach(b=>b.onclick=()=>{S[key]=b.dataset.v;draw();cb&&cb(b.dataset.v);});}
 function draw(){
-  [["when","when"],["mins","mins"],["type","type"],["who","who"],["baseChips","base"]].forEach(([box,key])=>$(box).querySelectorAll(".chip").forEach(b=>b.classList.toggle("on",String(S[key])===b.dataset.v)));
+  [["when","when"],["mins","mins"],["type","type"],["who","who"]].forEach(([box,key])=>$(box).querySelectorAll(".chip").forEach(b=>b.classList.toggle("on",String(S[key])===b.dataset.v)));
   $("foodOpts").classList.toggle("hidden",S.type!=="FD6");
   $("kind").querySelectorAll(".chip").forEach(b=>b.classList.toggle("on",S.kind.has(b.dataset.v)));
 }
@@ -280,27 +279,55 @@ segPick("when","when",v=>{S.mins=v==="L"?10:15;draw();});
 segPick("mins","mins",v=>{S.mins=+v;draw();});
 segPick("type","type");
 $("who").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{S.who=S.who===b.dataset.v?null:b.dataset.v;draw();});
-function useBase(){
-  S.base="base";draw();
-  const b=META.base;
-  if(b&&b.lat){S.where={lat:b.lat,lng:b.lng};$("here").textContent=`🏢 ${b.label||"회사"}에서 출발 · 밥친구 가게 ${META.count}곳 중에서 뽑아요`;}
-  else{S.where=null;$("here").textContent="🏢 아직 회사 위치가 정해지지 않았어요. 📱 내 위치나 주소로 뽑아 볼래요?";}
+/* ---------- 출발 위치 (내 위치 · 주소 검색 · 저장한 곳) ---------- */
+let PLACES=load("places",[]),FOUND=null;
+const pEmo=n=>/회사|사무실|오피스/.test(n)?"🏢":/집|home/i.test(n)?"🏠":/학교/.test(n)?"🏫":"📍";
+const hereCount=()=>META.count?` · 밥친구 가게 ${META.count}곳 중에서 뽑아요`:"";
+function drawPlaces(){
+  $("baseChips").innerHTML=`<button class="chip ${S.base==="gps"?"on":""}" data-v="gps">📱 지금 내 위치</button>`+
+    PLACES.map((p,i)=>`<button class="chip ${S.base==="p"+i?"on":""}" data-v="p${i}">${pEmo(p.n)} ${esc(p.n)}<span class="x" data-del="${i}" title="지우기">✕</span></button>`).join("");
+  $("baseChips").querySelectorAll(".chip").forEach(b=>b.onclick=e=>{
+    const del=e.target.dataset&&e.target.dataset.del;
+    if(del!=null){const p=PLACES[+del];
+      if(e.target.dataset.c!=="1"){e.target.dataset.c="1";e.target.textContent="지울까요?";setTimeout(()=>drawPlaces(),2500);return;}
+      PLACES.splice(+del,1);save("places",PLACES);if(S.base==="p"+del){S.base=null;S.where=null;$("here").textContent="📍 출발 위치를 골라 주세요";}else if(S.base&&S.base[0]==="p"&&+S.base.slice(1)>+del)S.base="p"+(+S.base.slice(1)-1);
+      drawPlaces();toast(`🗑️ '${p.n}'을(를) 지웠어요`);return;}
+    if(b.dataset.v==="gps")useGps();else usePlace(+b.dataset.v.slice(1));
+  });
 }
-$("baseChips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
-  if(b.dataset.v==="base"){useBase();return;}
-  S.base="gps";draw();$("here").textContent="📱 내 위치를 확인하는 중…";
-  if(!navigator.geolocation){$("here").textContent="이 브라우저에선 위치를 쓸 수 없어요";return;}
-  navigator.geolocation.getCurrentPosition(p=>{S.where={lat:p.coords.latitude,lng:p.coords.longitude};$("here").textContent="📱 지금 내 위치에서 출발";},
-    ()=>{$("here").textContent="위치 권한이 없어서 못 찾았어요. 🏢 회사나 주소로 뽑아 볼래요?";},{enableHighAccuracy:true,timeout:8000});
-});
+function usePlace(i){
+  const p=PLACES[i];if(!p)return;
+  S.base="p"+i;S.where={lat:p.lat,lng:p.lng};save("lastPlace",p.n);$("saveRow").classList.add("hidden");drawPlaces();
+  $("here").textContent=`${pEmo(p.n)} ${p.n}에서 출발${hereCount()}`;
+}
+function useGps(){
+  S.base="gps";S.where=null;drawPlaces();$("saveRow").classList.add("hidden");$("here").textContent="📱 내 위치를 확인하는 중…";
+  if(!navigator.geolocation){$("here").textContent="이 브라우저에선 위치를 쓸 수 없어요. 주소로 찾아 볼래요?";return;}
+  navigator.geolocation.getCurrentPosition(p=>{if(S.base!=="gps")return;S.where={lat:p.coords.latitude,lng:p.coords.longitude};save("lastPlace","__gps");$("here").textContent=`📱 지금 내 위치에서 출발${hereCount()}`;},
+    ()=>{if(S.base!=="gps")return;$("here").textContent="위치 권한이 없어서 못 찾았어요. 주소로 찾아 볼래요?";},{enableHighAccuracy:true,timeout:8000});
+}
 $("addrBtn").onclick=findAddr;$("addrIn").addEventListener("keydown",e=>{if(e.key==="Enter")findAddr();});
 async function findAddr(){
   const q=$("addrIn").value.trim();if(!q){toast("주소나 장소 이름을 적어 주세요");return;}
   if(!kakaoOk){toast("지도를 아직 불러오지 못했어요. 잠시 뒤에 다시 눌러 주세요");return;}
   const hit=await geocode(q);
   if(!hit){$("here").textContent="그 이름으로는 못 찾았어요. 다르게 적어 볼래요?";return;}
-  S.base="addr";S.where={lat:hit.lat,lng:hit.lng};draw();
-  $("here").textContent=`📍 ${hit.label}에서 출발`;
+  FOUND=hit;S.base="addr";S.where={lat:hit.lat,lng:hit.lng};drawPlaces();
+  $("here").textContent=`📍 ${hit.label}에서 출발${hereCount()}`;
+  $("saveRow").classList.remove("hidden");$("placeName").value="";$("placeName").focus();
+}
+function savePlace(){
+  if(!FOUND)return;const n=$("placeName").value.trim().slice(0,10);
+  if(!n){toast("이름을 적어 주세요 (예: 회사, 집)");$("placeName").focus();return;}
+  const p={n,lat:FOUND.lat,lng:FOUND.lng,addr:FOUND.addr||FOUND.label};
+  const j=PLACES.findIndex(x=>x.n===n);if(j>=0)PLACES[j]=p;else{if(PLACES.length>=8){toast("저장은 8곳까지예요. 안 쓰는 곳을 ✕로 지워 주세요");return;}PLACES.push(p);}
+  save("places",PLACES);$("addrIn").value="";FOUND=null;usePlace(j>=0?j:PLACES.length-1);toast(`💾 '${n}' 저장했어요! 다음부터 바로 골라요`);
+}
+$("placeSave").onclick=savePlace;$("placeName").addEventListener("keydown",e=>{if(e.key==="Enter")savePlace();});
+function startPlace(){
+  const last=load("lastPlace",null),i=PLACES.findIndex(p=>p.n===last);
+  if(i>=0)usePlace(i);else if(PLACES.length)usePlace(0);
+  else{drawPlaces();$("here").textContent=`📍 주소를 찾거나 📱 내 위치를 눌러 주세요. 자주 가는 곳은 이름을 붙여 저장할 수 있어요${hereCount()}`;}
 }
 
 /* ---------- 뽑기 (서버가 명단에서 골라 줘요) ---------- */
@@ -318,8 +345,19 @@ async function roll(){
   const iv=setInterval(()=>{$("rE").textContent=icons[i++%icons.length];},90);
   let res=null,err=null;
   const t0=Date.now();
-  try{res=await api("POST","/pick",{lat:S.where.lat,lng:S.where.lng,when:S.when,mins:S.mins,type:S.type,who:S.who,kinds:[...S.kind],recent:S.recent,fav:Object.keys(S.fav),favOnly:$("favOnly").checked,exclude:Object.keys(S.ex)});}
-  catch(e){err=e;}
+  try{
+    for(let t=0;t<4;t++){
+      res=await api("POST","/pick",{lat:S.where.lat,lng:S.where.lng,when:S.when,mins:S.mins,type:S.type,who:S.who,kinds:[...S.kind],recent:S.recent,fav:Object.keys(S.fav),favOnly:$("favOnly").checked,exclude:[...Object.keys(S.ex),...Object.keys(GONE)].slice(-300)});
+      if(!res.count)break;
+      /* 카카오맵에서 사라진 가게(문 닫은 곳)는 자동으로 빼고 다시 뽑아요 */
+      const all=[res.pick,...(res.alts||[])],live=await Promise.all(all.map(stillOpen));
+      all.forEach((p,k)=>{if(live[k]===false)markGone(p);});
+      res.alts=(res.alts||[]).filter((p,k)=>live[k+1]!==false);
+      if(live[0]!==false)break;
+      res=null;
+    }
+    if(!res)res={count:0,gone:1};
+  }catch(e){err=e;}
   await new Promise(r=>setTimeout(r,Math.max(0,1000-(Date.now()-t0))));
   clearInterval(iv);rolling=false;
   if(err){$("rE").className="ball";$("rE").textContent="😵";$("rN").textContent="밥친구가 잠깐 자리를 비웠어요";$("rC").textContent=err.message;drawMap([],null);return;}
@@ -331,6 +369,17 @@ async function roll(){
   S.recent=[res.pick.id,...S.recent.filter(x=>x!==res.pick.id)].slice(0,8);
   show(res.pick,res.alts||[],res.count);
 }
+let GONE=load("gone",{});
+function stillOpen(p){
+  return new Promise(res=>{
+    if(!kakaoOk||!ps){res(null);return;}
+    const tm=setTimeout(()=>res(null),2500);
+    ps.keywordSearch(p.name,(d,st)=>{clearTimeout(tm);const S2=kakao.maps.services.Status;
+      if(st===S2.OK)res(d.some(x=>x.id===p.id)?true:false);else if(st===S2.ZERO_RESULT)res(false);else res(null);},
+      {location:new kakao.maps.LatLng(p.y,p.x),radius:300});
+  });
+}
+function markGone(p){if(GONE[p.id])return;GONE[p.id]=Date.now();save("gone",GONE);api("POST","/report",{id:p.id}).catch(()=>{});}
 function show(p,alts,count){
   S.last={p,alts,count};
   $("rE").className="ball";$("rE").textContent=emo(p);
@@ -341,15 +390,10 @@ function show(p,alts,count){
   const fav=!!S.fav[p.id];
   $("rL").innerHTML=`${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">🗺️ 카카오맵</a>`:""}
     <a href="https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.y},${p.x}" target="_blank" rel="noopener">🚶 길찾기</a>
-    <button id="favBtn">${fav?"⭐ 즐겨찾기 해제":"☆ 즐겨찾기"}</button><button id="exBtn">🙅 나한텐 빼기</button><button id="repBtn">🚫 문 닫았어요</button>`;
+    <button id="favBtn">${fav?"⭐ 즐겨찾기 해제":"☆ 즐겨찾기"}</button><button id="exBtn">🙅 나한텐 빼기</button>`;
   $("favBtn").onclick=()=>{if(S.fav[p.id])delete S.fav[p.id];else S.fav[p.id]={n:p.name,c:catShort(p.cat)};save("fav",S.fav);show(p,alts,count);drawLists();toast(S.fav[p.id]?"⭐ 즐겨찾기에 넣었어요":"즐겨찾기에서 뺐어요");};
   $("exBtn").onclick=()=>{S.ex[p.id]={n:p.name};save("ex",S.ex);drawLists();toast("🙅 이제 나한텐 안 나와요");roll();};
-  $("repBtn").onclick=async()=>{
-    const done=load("reported",{});if(done[p.id]){toast("이미 제보했어요. 고마워요! 🙏");return;}
-    try{await api("POST","/report",{id:p.id});}catch(e){}
-    done[p.id]=1;save("reported",done);S.ex[p.id]={n:p.name+" (문 닫음 제보)"};save("ex",S.ex);drawLists();
-    toast("🙏 제보 고마워요! 관리자가 확인할게요");roll();
-  };
+
   $("rAlt").innerHTML=alts.map(a=>`<button data-id="${esc(a.id)}">${emo(a)} ${esc(a.name)}<small>${esc(catShort(a.cat))} · 약 ${walkMin(a.distance)}분</small></button>`).join("");
   $("rAlt").querySelectorAll("button").forEach(b=>b.onclick=()=>{const a=alts.find(x=>x.id===b.dataset.id);show(a,alts.filter(x=>x!==a).concat([p]),count);});
   $("cnt").textContent=`조건에 맞는 가게 ${count}곳 중에서 뽑았어요`;
@@ -422,11 +466,13 @@ async function showAdmin(noScroll){
   try{const a=await admin("GET","/admin/all");STORES=a.stores||{};SETTINGS=a.settings||{};REPORTS=a.reports||{};}
   catch(e){if(/비밀번호/.test(e.message)){logout();toast("비밀번호가 바뀌었어요. 다시 로그인해 주세요");}else toast("관리실을 열지 못했어요 ("+e.message+")");return;}
   $("admin").classList.remove("hidden");$("adminWho").textContent="관리자로 들어왔어요 · 이 브라우저에선 로그인이 유지돼요";
+  const rep=Object.values(REPORTS).map(r=>r.store).filter(id=>STORES[id]&&(STORES[id].status||"ok")==="ok");
+  if(rep.length){const up={};rep.forEach(id=>{up[`${id}/status`]="suspect";STORES[id].status="suspect";});admin("PATCH","/admin/stores",up).then(refreshMeta).catch(()=>{});}
   drawBaseNow();drawStores();drawReports();if(!noScroll)$("admin").scrollIntoView({behavior:"smooth"});
   if(kakaoOk&&storeList().length&&(!SETTINGS.lastCheck||Date.now()-SETTINGS.lastCheck>864e5))checkClosed(true);
 }
 function storeList(){return Object.entries(STORES).map(([id,v])=>Object.assign({id},v));}
-async function refreshMeta(){try{META=await api("GET","/meta");if(S.base==="base")useBase();}catch(e){}}
+async function refreshMeta(){try{META=await api("GET","/meta");}catch(e){}}
 function drawBaseNow(){const b=SETTINGS.base;$("baseNow").textContent=b&&b.lat?`🏢 ${b.label||"회사"} (${b.addr||""})`:"아직 정하지 않았어요. 회사 주소를 찾아서 저장해 주세요";}
 $("baseFind").onclick=async()=>{
   const q=$("baseIn").value.trim();$("baseErr").textContent="";
@@ -434,7 +480,7 @@ $("baseFind").onclick=async()=>{
   if(!kakaoOk){$("baseErr").textContent="카카오맵을 불러오지 못했어요";return;}
   const hit=await geocode(q);if(!hit){$("baseErr").textContent="그 이름으로는 못 찾았어요";return;}
   const base={lat:hit.lat,lng:hit.lng,label:"회사",addr:hit.addr};
-  try{await admin("PATCH","/admin/settings",{base});SETTINGS.base=base;META.base=base;drawBaseNow();if(S.base==="base")useBase();toast("🏢 회사 위치를 저장했어요");}
+  try{await admin("PATCH","/admin/settings",{base});SETTINGS.base=base;META.base=base;drawBaseNow();toast("🏢 회사 위치를 저장했어요");}
   catch(e){$("baseErr").textContent="저장하지 못했어요 ("+e.message+")";}
 };
 
@@ -664,7 +710,7 @@ function drawReports(){
 (async function(){
   draw();drawLists();
   const [m]=await Promise.all([BASEURL?api("GET","/meta").catch(()=>null):Promise.resolve(null),bootKakao()]);
-  if(m){META=m;useBase();}
+  if(m){META=m;startPlace();}
   else $("here").textContent=BASEURL?"밥친구 서버에 연결하지 못했어요 😢 잠시 뒤에 다시 와 주세요":"밥친구 서버 주소(API)가 아직 설정되지 않았어요";
   if(location.hash==="#admin")openAdmin();
   else if(ADMINPW)showAdmin(true);
