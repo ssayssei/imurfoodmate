@@ -195,8 +195,8 @@ textarea{min-height:140px;resize:vertical;line-height:1.6}
     <h3>📗 엑셀로 한 번에 올리기</h3>
     <p class="qs">엑셀에서 <b>매장명</b>이랑 <b>주소</b> 칸만 읽어요. 다른 칸(전화번호, 대표자 등)은 읽지도, 보내지도 않아요.<br>카카오맵에서 <b>식당·카페로 나오는 곳만</b> 저장되고, 이미 있는 가게는 건너뛰어요.</p>
     <div class="row" style="justify-content:flex-start;gap:14px;flex-wrap:wrap;margin-top:6px">
-      <label class="qs" style="margin:0"><input type="radio" name="xScope" value="near" checked> 🏢 회사 근처만 (2km 안)</label>
-      <label class="qs" style="margin:0"><input type="radio" name="xScope" value="all"> 🗺️ 전국 전부</label>
+      <label class="qs" style="margin:0"><input type="radio" name="xScope" value="near"> 🏢 회사 근처만 (2km 안)</label>
+      <label class="qs" style="margin:0"><input type="radio" name="xScope" value="all" checked> 🗺️ 전국 전부</label>
     </div>
     <input type="file" id="xFile" accept=".xlsx" class="hidden">
     <div class="row" style="justify-content:flex-start"><button class="btn sm" id="xPick">📗 엑셀 파일 고르기</button><button class="btn sm ghost hidden" id="xStop">⏹ 멈추기</button></div>
@@ -233,6 +233,7 @@ const esc=t=>String(t==null?"":t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2200);}
 const BASEURL=String(API||"").trim().replace(/\/+$/,"");
 const WALK=75,DETOUR=1.25;
+const DEF_BASE={lat:37.4772,lng:126.8826}; /* 회사 위치를 안 정했을 때 가게 찾기 기준 (가산디지털단지) */
 const EMO=[["국밥","🍲"],["찌개","🍲"],["분식","🌶️"],["김밥","🍙"],["중","🥢"],["초밥","🍣"],["일식","🍱"],["돈까스","🍛"],["고기","🥩"],["육류","🥩"],["치킨","🍗"],["햄버거","🍔"],["피자","🍕"],["양식","🍝"],["이탈리안","🍝"],["베트남","🍜"],["아시아","🍜"],["국수","🍜"],["술집","🍻"],["호프","🍺"],["샐러드","🥗"],["카페","☕"],["디저트","🍰"],["제과","🥐"],["베이커리","🥐"],["한식","🍚"]];
 const KINDS=["한식", "중식", "일식", "양식", "분식", "아시안", "고기"];
 
@@ -436,7 +437,7 @@ $("bulkFind").onclick=async()=>{
   const lines=$("bulkIn").value.split("\n").map(l=>l.trim()).filter(Boolean);
   if(!lines.length){$("bulkMsg").textContent="가게 이름을 한 줄에 하나씩 적어 주세요";return;}
   if(!kakaoOk){$("bulkMsg").textContent="카카오맵을 불러오지 못했어요";return;}
-  const b=SETTINGS.base;if(!b||!b.lat){$("bulkMsg").textContent="먼저 🏢 회사 위치를 저장해 주세요 (가까운 가게부터 찾으려고요)";return;}
+  const b=(SETTINGS.base&&SETTINGS.base.lat)?SETTINGS.base:DEF_BASE;
   $("bulkFind").disabled=true;BULK=[];
   const loc=new kakao.maps.LatLng(b.lat,b.lng);
   for(let i=0;i<lines.length;i++){
@@ -516,7 +517,6 @@ async function readXlsx(buf){
 let xStop=false;
 $("xPick").onclick=()=>{
   if(!kakaoOk){$("xMsg").textContent="카카오맵을 불러오지 못했어요";return;}
-  const b=SETTINGS.base;if(!b||!b.lat){$("xMsg").textContent="먼저 🏢 회사 위치를 저장해 주세요";return;}
   $("xFile").value="";$("xFile").click();
 };
 $("xStop").onclick=()=>{xStop=true;$("xStop").disabled=true;$("xMsg").textContent="멈추는 중… (지금까지 찾은 가게는 저장해요)";};
@@ -529,7 +529,8 @@ $("xFile").onchange=async()=>{
   const seen=new Set(),list=[];
   for(const r of rows.slice(hi+1)){const nm=(r[ni]||"").trim(),ad=(r[ai]||"").trim();if(!nm)continue;const k=nm+"|"+ad;if(seen.has(k))continue;seen.add(k);list.push({nm,ad});}
   if(!list.length){$("xMsg").textContent="읽을 가게가 없어요";return;}
-  const near=document.querySelector('input[name=xScope]:checked').value==="near",R=2000,base=SETTINGS.base;
+  const hasBase=!!(SETTINGS.base&&SETTINGS.base.lat),base=hasBase?SETTINGS.base:DEF_BASE;
+  const near=document.querySelector('input[name=xScope]:checked').value==="near",R=2000;
   const known=new Set(storeList().map(s=>s.name.replace(/\s/g,"")+"|"+(s.addr||"")));
   const norm=t=>String(t||"").replace(/\(주\)|주식회사|\s|[()\[\]·.,\-]/g,"").toLowerCase();
   const C={ok:0,dup:0,far:0,notFood:0,miss:0},miss=[];let add={},done=0,saving=Promise.resolve();
